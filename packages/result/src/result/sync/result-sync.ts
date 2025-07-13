@@ -183,9 +183,9 @@ export class ResultSync<O, E> {
      */
     public map<TOk>(fn: (data: O) => TOk): Result<TOk, E> {
         if (this.isErr()) {
-            return ResultSync.errSync(this.getErr());
+            return errSync(this.getErr());
         }
-        return ResultSync.okSync(fn(this.getOk()));
+        return okSync(fn(this.getOk()));
     }
 
     /**
@@ -200,10 +200,10 @@ export class ResultSync<O, E> {
      */
     public mapErr<TErr>(fn: (err: E) => TErr): Result<O, TErr> {
         if (this.isErr()) {
-            return ResultSync.errSync(fn(this.getErr()));
+            return errSync(fn(this.getErr()));
         }
 
-        return ResultSync.okSync(this.getOk());
+        return okSync(this.getOk());
     }
 
     /**
@@ -223,7 +223,7 @@ export class ResultSync<O, E> {
     public andThen<TOk, TErr>(fn: (t: O) => Result<TOk, TErr>): Result<TOk, E | TErr>;
     public andThen(fn: (t: O) => Result<unknown, unknown>): Result<unknown, unknown> {
         if (this.isErr()) {
-            return ResultSync.errSync(this.getErr());
+            return errSync(this.getErr());
         }
         return fn(this.getOk());
     }
@@ -247,7 +247,7 @@ export class ResultSync<O, E> {
         if (this.isErr()) {
             return fn(this.getErr());
         }
-        return ResultSync.okSync(this.getOk());
+        return okSync(this.getOk());
     }
 
     /**
@@ -262,7 +262,7 @@ export class ResultSync<O, E> {
      */
     public andTee(fn: (ok: O) => unknown): Result<O, E> {
         if (this.isErr()) {
-            return ResultSync.errSync(this.getErr());
+            return errSync(this.getErr());
         }
 
         try {
@@ -274,7 +274,7 @@ export class ResultSync<O, E> {
             );
         }
 
-        return ResultSync.okSync(this.getOk());
+        return okSync(this.getOk());
     }
 
     /**
@@ -289,7 +289,7 @@ export class ResultSync<O, E> {
      */
     public orTee(fn: (err: E) => unknown): Result<O, E> {
         if (this.isOk()) {
-            return ResultSync.okSync(this.getOk());
+            return okSync(this.getOk());
         }
 
         try {
@@ -301,83 +301,81 @@ export class ResultSync<O, E> {
             );
         }
 
-        return ResultSync.errSync(this.getErr());
-    }
-
-    // ##################################################
-    // ###########      STATIC METHODS      #############
-    // ##################################################
-
-    /**
-     * @description
-     * Creates a successful result.
-     *
-     * @template O - The type of the successful result value.
-     * @template E - The type of the error value (default is never).
-     * @param okValue - The value of the successful result.
-     * @returns A successful Result instance.
-     */
-    static okSync<O>(okValue: O): Result<O, never> {
-        return new ResultSync({ status: ResultStatus.OK, ok: okValue }) as never;
-    }
-
-    /**
-     * @description
-     * Creates a failed result.
-     *
-     * @template E - The type of the error value.
-     * @template O - The type of the successful result value (default is never).
-     * @param errorValue - The error value.
-     * @returns A failed Result instance.
-     */
-    static errSync<E>(errorValue: E): Result<never, E> {
-        return new ResultSync({ status: ResultStatus.ERR, err: errorValue }) as never;
-    }
-
-    /**
-     * @description
-     * Attempts to execute a side effect function and captures any thrown errors as a failed result.
-     *
-     * @param Ok - the Ok value
-     * @param Err - The Err value.
-     * @param OkArgs - An array of arguments of the main function
-     * @returns A Result instance representing the outcome of the attempted function execution.
-     */
-    static safeTrySync<O, E, OArgs extends any[]>(safeArgs: {
-        try: (...args: OArgs) => O;
-        catch?: (error: unknown) => E;
-    }): (...args: OArgs) => Result<O, E> {
-        return (...args) => {
-            try {
-                const value = safeArgs.try(...args);
-                return ResultSync.okSync(value);
-            } catch (error) {
-                if (safeArgs.catch) {
-                    return ResultSync.errSync(safeArgs.catch(error));
-                }
-                return ResultSync.errSync(error as E);
-            }
-        };
-    }
-
-    /**
-     * @description
-     * Infer the Ok and Err types of the returned Result
-     *
-     * @template TArgs - Any arguments
-     * @template TResult - A sync Result type
-     * @param fn - The function to execute.
-     * @returns A Result instance representing the outcome of the attempted function execution.
-     */
-    static inferSync<TArgs extends any[], TResult extends Result<unknown, unknown>>(
-        fn: (...args: TArgs) => TResult,
-    ): (...args: TArgs) => Result<InferOkTypes<TResult>, InferErrTypes<TResult>>;
-    static inferSync(fn: (...args: unknown[]) => unknown): typeof fn {
-        return fn;
+        return errSync(this.getErr());
     }
 }
 
-export const okSync = ResultSync.okSync;
-export const errSync = ResultSync.errSync;
-export const safeTrySync = ResultSync.safeTrySync;
-export const inferSync = ResultSync.inferSync;
+// ##################################################
+// ###########      STATIC METHODS      #############
+// ##################################################
+
+/**
+ * @description
+ * Creates a successful result.
+ *
+ * @template O - The type of the successful result value.
+ * @template E - The type of the error value (default is never).
+ * @param okValue - The value of the successful result.
+ * @returns A successful Result instance.
+ */
+export function okSync<O>(okValue: O): Result<O, never> {
+    return new ResultSync({ status: ResultStatus.OK, ok: okValue }) as never;
+}
+
+/**
+ * @description
+ * Creates a failed result.
+ *
+ * @template E - The type of the error value.
+ * @template O - The type of the successful result value (default is never).
+ * @param errorValue - The error value.
+ * @returns A failed Result instance.
+ */
+export function errSync<E>(errorValue: E): Result<never, E> {
+    return new ResultSync({ status: ResultStatus.ERR, err: errorValue }) as never;
+}
+
+/**
+ * @description
+ * Attempts to execute a side effect function and captures any thrown errors as a failed result.
+ *
+ * @param Ok - the Ok value
+ * @param Err - The Err value.
+ * @param OkArgs - An array of arguments of the main function
+ * @returns A Result instance representing the outcome of the attempted function execution.
+ */
+export function safeTrySync<O, E, OArgs extends any[]>(safeArgs: {
+    try: (...args: OArgs) => O;
+    catch?: (error: unknown) => E;
+}): (...args: OArgs) => Result<O, E> {
+    return (...args) => {
+        try {
+            const value = safeArgs.try(...args);
+            return okSync(value);
+        } catch (error) {
+            if (safeArgs.catch) {
+                return errSync(safeArgs.catch(error));
+            }
+            return errSync(error as E);
+        }
+    };
+}
+
+/**
+ * @description
+ * Infer the Ok and Err types of the returned Result
+ *
+ * @template TArgs - Any arguments
+ * @template TResult - A sync Result type
+ * @param fn - The function to execute.
+ * @returns A Result instance representing the outcome of the attempted function execution.
+ */
+export function inferSync<TArgs extends any[], TResult extends Result<unknown, unknown>>(
+    fn: (...args: TArgs) => TResult,
+): (...args: TArgs) => Result<InferOkTypes<TResult>, InferErrTypes<TResult>>;
+export function inferSync(fn: (...args: unknown[]) => unknown): typeof fn {
+    return fn;
+}
+
+export const pipe = <T>(value: T, ...fns: Array<(arg: any) => any>): any =>
+    fns.reduce((acc, fn) => fn(acc), value);

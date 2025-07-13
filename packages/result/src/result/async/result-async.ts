@@ -220,95 +220,88 @@ export class ResultAsync<O, E> implements PromiseLike<Result<O, E>> {
     public orTee(fn: (err: E) => unknown): ResultAsync<O, E> {
         return new ResultAsync(this._promise.then((res) => res.orTee(fn)));
     }
+}
+// ##################################################
+// ###########      STATIC METHODS      #############
+// ##################################################
 
-    // ##################################################
-    // ###########      STATIC METHODS      #############
-    // ##################################################
-
-    /**
-     * @description
-     * Creates a ResultAsync instance of a Result instance
-     * This utility function allow you to pass the coloring problem
-     * of when you have an async result and you wanna stack other sync results
-     *
-     * @param result - The result instance you wanna convert to async result instance
-     * @returns A ResultAsync instance with same Ok and Error values than the recieved Result
-     */
-    public static toAsync<O, E>(result: Result<O, E>): ResultAsync<O, E> {
-        return new ResultAsync(Promise.resolve(result));
-    }
-
-    /**
-     * @description
-     * Creates a ResultAsync instance with an Ok value.
-     *
-     * @param okValue - The Ok value.
-     * @returns A ResultAsync instance with the Ok value.
-     */
-    public static ok<O, E = never>(okValue: O): ResultAsync<O, E> {
-        return new ResultAsync(Promise.resolve(okSync(okValue)));
-    }
-
-    /**
-     * @description
-     * Creates a ResultAsync instance with an Err value.
-     *
-     * @param errorValue - The Err value.
-     * @returns A ResultAsync instance with the Err value.
-     */
-    public static err<E, O = never>(errorValue: E): ResultAsync<O, E> {
-        return new ResultAsync(Promise.resolve(errSync(errorValue)));
-    }
-
-    /**
-     * @description
-     * Attempts to execute an asynchronous function, capturing any errors as a ResultAsync.
-     *
-     * @param Ok - the Ok value
-     * @param Err - The Err value.
-     * @param OkArgs - An array of arguments of the main function
-     * @returns A ResultAsync representing the result of the function.
-     */
-    public static safeTry<Ok, Err, OkArgs extends any[]>(safeArgs: {
-        try: (...args: OkArgs) => Promise<Ok>;
-        catch?: (error: unknown) => Err;
-    }): (...args: OkArgs) => ResultAsync<Ok, Err> {
-        return (...args) =>
-            new ResultAsync(
-                safeArgs
-                    .try(...args)
-                    .then((res) => okSync(res))
-                    .catch((error) => {
-                        if (safeArgs.catch) {
-                            return errSync(safeArgs.catch(error));
-                        }
-                        return errSync(error);
-                    }),
-            );
-    }
-
-    /**
-     * @description
-     * Infer the Ok and Err types of the returned ResultAsync
-     *
-     * @template TArgs - Any arguments
-     * @template TResult - ResultAsync type
-     * @param fn - The function to execute.
-     * @returns A ResultAsync instance representing the outcome of the attempted function execution.
-     */
-    public static infer<TArgs extends any[], TResult extends ResultAsync<unknown, unknown>>(
-        fn: (...args: TArgs) => TResult,
-    ): (...args: TArgs) => ResultAsync<InferAsyncOkTypes<TResult>, InferAsyncErrTypes<TResult>>;
-    public static infer<TArgs extends any[], TResult extends Result<unknown, unknown>>(
-        fn: (...args: TArgs) => Promise<TResult>,
-    ): (...args: TArgs) => ResultAsync<InferOkTypes<TResult>, InferErrTypes<TResult>>;
-    public static infer(fn: (...args: unknown[]) => unknown): typeof fn {
-        return fn;
-    }
+/**
+ * @description
+ * Creates a ResultAsync instance of a Result instance
+ * This utility function allow you to pass the coloring problem
+ * of when you have an async result and you wanna stack other sync results
+ *
+ * @param result - The result instance you wanna convert to async result instance
+ * @returns A ResultAsync instance with same Ok and Error values than the recieved Result
+ */
+export function toAsync<O, E>(result: Result<O, E>): ResultAsync<O, E> {
+    return new ResultAsync(Promise.resolve(result));
 }
 
-export const toAsync = ResultAsync.toAsync;
-export const ok = ResultAsync.ok;
-export const err = ResultAsync.err;
-export const safeTry = ResultAsync.safeTry;
-export const infer = ResultAsync.infer;
+/**
+ * @description
+ * Creates a ResultAsync instance with an Ok value.
+ *
+ * @param okValue - The Ok value.
+ * @returns A ResultAsync instance with the Ok value.
+ */
+export function ok<O, E = never>(okValue: O): ResultAsync<O, E> {
+    return new ResultAsync(Promise.resolve(okSync(okValue)));
+}
+
+/**
+ * @description
+ * Creates a ResultAsync instance with an Err value.
+ *
+ * @param errorValue - The Err value.
+ * @returns A ResultAsync instance with the Err value.
+ */
+export function err<E, O = never>(errorValue: E): ResultAsync<O, E> {
+    return new ResultAsync(Promise.resolve(errSync(errorValue)));
+}
+
+/**
+ * @description
+ * Attempts to execute an asynchronous function, capturing any errors as a ResultAsync.
+ *
+ * @param Ok - the Ok value
+ * @param Err - The Err value.
+ * @param OkArgs - An array of arguments of the main function
+ * @returns A ResultAsync representing the result of the function.
+ */
+export function safeTry<Ok, Err, OkArgs extends any[]>(safeArgs: {
+    try: (...args: OkArgs) => Promise<Ok>;
+    catch?: (error: unknown) => Err;
+}): (...args: OkArgs) => ResultAsync<Ok, Err> {
+    return (...args) =>
+        new ResultAsync(
+            safeArgs
+                .try(...args)
+                .then((res) => okSync(res))
+                .catch((error) => {
+                    if (safeArgs.catch) {
+                        return errSync(safeArgs.catch(error));
+                    }
+                    return errSync(error);
+                }),
+        );
+}
+
+/**
+ * @description
+ * Infer the Ok and Err types of the returned ResultAsync
+ *
+ * @template TArgs - Any arguments
+ * @template TResult - ResultAsync type
+ * @param fn - The function to execute.
+ * @returns A ResultAsync instance representing the outcome of the attempted function execution.
+ */
+export function infer<TArgs extends any[], TResult extends ResultAsync<unknown, unknown>>(
+    fn: (...args: TArgs) => TResult,
+): (...args: TArgs) => ResultAsync<InferAsyncOkTypes<TResult>, InferAsyncErrTypes<TResult>>;
+export function infer<TArgs extends any[], TResult extends Result<unknown, unknown>>(
+    fn: (...args: TArgs) => Promise<TResult>,
+): (...args: TArgs) => ResultAsync<InferOkTypes<TResult>, InferErrTypes<TResult>>;
+export function infer(fn: (...args: unknown[]) => unknown): typeof fn {
+    return fn;
+}
