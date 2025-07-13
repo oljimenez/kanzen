@@ -1,0 +1,30 @@
+{
+    "name": "@kanzen/result",
+    "version": "1.0.12",
+    "description": "A minimal port of Rust Result type in Typescript",
+    "author": "Oscar Luis Jimenez Gonzalez <https://github.com/oljimenez>",
+    "keywords": ["rust", "errors", "typesafe"],
+    "license": "MIT",
+    "type": "module",
+    "main": "dist/index.js",
+    "module": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": ["dist"],
+    "scripts": {
+        "build": "tsc",
+        "check-types": "tsc",
+        "test": "vitest --typecheck",
+        "coverage": "vitest run --coverage",
+        "pub": "npm publish --access public",
+        "prepublishOnly": "npm run build"
+    },
+    "devDependencies": {
+        "@vitest/coverage-v8": "3.1.4",
+        "jsdom": "^26.0.0",
+        "typescript": "^5.8.3",
+        "vitest": "^3.1.4"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

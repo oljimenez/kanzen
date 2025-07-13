@@ -1,0 +1,671 @@
+# @kanzen/result
+
+[![npm version](https://img.shields.io/npm/v/@kanzen/result.svg)](https://www.npmjs.com/package/@kanzen/result)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A minimal TypeScript implementation of Rust's Result type for elegant error handling without exceptions.
+
+## 📋 Table of Contents
+
+- [Introduction](#introduction)
+- [Installation](#installation)
+- [Key Features](#key-features)
+- [Basic Usage](#basic-usage)
+- [Migration from try/catch](#migration-from-trycatch)
+- [API Reference](#api-reference)
+  - [Synchronous API](#synchronous-api)
+  - [Asynchronous API](#asynchronous-api)
+- [License](#license)
+
+<a name="introduction"></a>
+## 🌟 Introduction
+
+`@kanzen/result` provides a robust alternative to traditional try/catch error handling in JavaScript and TypeScript. Inspired by Rust's Result type, it enables functional, type-safe error handling that makes your code more predictable and easier to reason about.
+
+With this library, errors become first-class citizens in your code rather than exceptional flow-breaking events, allowing for more elegant composition of functions that might fail.
+
+<a name="installation"></a>
+## 📦 Installation
+
+```bash
+# npm
+npm install @kanzen/result
+
+# yarn
+yarn add @kanzen/result
+
+# pnpm
+pnpm add @kanzen/result
+```
+
+<a name="key-features"></a>
+## ✨ Key Features
+
+- **Type-safe error handling** - Leverage TypeScript to ensure errors are handled properly
+- **Functional approach** - Chain operations with clear success and error paths
+- **Synchronous and asynchronous support** - Handle both sync and async operations with a consistent API
+- **Zero dependencies** - Lightweight and focused implementation
+- **Comprehensive TypeScript types** - Full type inference for both success and error values
+
+<a name="basic-usage"></a>
+## 🚀 Basic Usage
+
+### Synchronous Example
+
+```typescript
+import { okSync, errSync, safeTrySync } from '@kanzen/result';
+
+// Create a successful result
+const success = okSync('Hello, world!');
+console.log(success.unwrap()); // 'Hello, world!'
+
+// Create a failed result
+const failure = errSync(new Error('Something went wrong'));
+console.log(failure.isErr()); // true
+
+// Handle both cases with match
+const message = failure.match({
+  ok: (value) => `Success: ${value}`,
+  err: (error) => `Error: ${error.message}`,
+});
+console.log(message); // 'Error: Something went wrong'
+
+// An operation that might throw
+function divideBy (a: number, b: number): number {
+  if (b === 0) {
+      throw new Error('Division by zero')
+  };
+  return a / b;
+};
+
+const safeDivideBy = safeTrySync(divideBy);
+
+const result = safeDivideBy(10, 2)
+  .map(result => result * 2)
+  .andTee(result => console.log(`Result: ${result}`))
+  .unwrapOr(0);
+
+console.log(result); // 10
+```
+
+### Asynchronous Example
+
+```typescript
+import { ok, err, safeTry } from '@kanzen/result';
+
+async function fetchUser(id: string): Promise<unknown> {
+    const response = await fetch(`https://api.example.com/users/${id}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+    return await response.json();
+}
+
+// Fetch API with Result
+const safeFetchUser = safeTry(fetchUser)
+
+// Use the result
+const value = await safeFetchUser('123')
+  .andThen((user) => {
+    // Only runs if fetchUser succeeded
+    return ok({ ...user, lastLogin: new Date() });
+  })
+  .orElse((error) => {
+    // Only runs if fetchUser failed
+    console.error(`Error fetching user: ${error.message}`);
+    return ok({ id: '0', name: 'Default User', lastLogin: null });
+  })
+  .unwrap();
+```
+
+<a name="migration-from-trycatch"></a>
+## 🔄 Migration from try/catch
+
+### Before
+
+```typescript
+function divideNumbers(a: number, b: number) {
+  try {
+    if (b === 0) {
+      throw new Error('Division by zero');
+    }
+    return a / b;
+  } catch (error) {
+    console.error('Error dividing numbers:', error);
+    return null;
+  }
+}
+
+// Usage:
+const result = divideNumbers(10, 0);
+if (result === null) {
+  console.log('An error occurred');
+} else {
+  console.log(`Result: ${result}`);
+}
+```
+
+### After
+
+```typescript
+import { safeTrySync } from '@kanzen/result';
+
+// Declare a unsafe function
+function divideNumbers(a: number, b: number): number {
+    if (b === 0) {
+        throw new Error("Division by zero");
+    }
+    return a / b;
+}
+
+// Make it safe function
+const safeDivideNumbers = safeTrySync(
+    divideNumbers,
+    (error) => new Error(`Division error: ${String(error)}`), // optional
+);
+
+// Usage:
+safeDivideNumbers(10, 2).match({
+    ok: (result) => console.log(`Result: ${result}`),
+    err: (error) => console.log(`An error occurred: ${error.message}`),
+});
+```
+
+<a name="api-reference"></a>
+## 📘 API Reference
+
+<a name="synchronous-api"></a>
+### Synchronous API
+
+#### Creating Results
+
+- **`okSync<T>(value: T): Result<T, never>`** - Creates a successful Result
+  ```typescript
+  import { okSync } from '@kanzen/result';
+
+  // Create a successful result with a string value
+  const success = okSync('Operation completed');
+  console.log(success.isOk()); // true
+  console.log(success.unwrap()); // 'Operation completed'
+  ```
+
+- **`errSync<E>(error: E): Result<never, E>`** - Creates a failed Result
+  ```typescript
+  import { errSync } from '@kanzen/result';
+
+  // Create a failed result with an Error object
+  const failure = errSync(new Error('Operation failed'));
+  console.log(failure.isErr()); // true
+  console.log(failure.unwrapOr('Default value')); // 'Default value'
+  ```
+
+- **`safeTrySync<T, E>(fn: () => T, fnErr?: (error: unknown) => E): Result<T, E>`** - Safely executes a function that might throw, wrapping the result in a Result type
+  ```typescript
+  import { safeTrySync } from '@kanzen/result';
+
+  // Original function that may throw
+  function divide(a: number, b: number): number {
+    if (b === 0) throw new Error('Cannot divide by zero');
+    return a / b;
+  }
+
+  // Create a safe version of the function
+  const safeDivide = safeTrySync(divide);
+
+  // Use the safe version
+  const result = safeDivide(10, 2); // Ok(5)
+  const errorResult = safeDivide(10, 0); // Err(Error: Cannot divide by zero)
+
+  // With custom error mapping
+  const customSafeDivide = safeTrySync(
+    divide,
+    (error) => `Division error: ${String(error)}`
+  );
+  ```
+
+#### Result Methods
+
+- **`isOk(): boolean`** - Checks if the Result is successful
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync(42);
+  console.log(success.isOk()); // true
+
+  const failure = errSync('Failed');
+  console.log(failure.isOk()); // false
+  ```
+
+- **`isErr(): boolean`** - Checks if the Result is an error
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync(42);
+  console.log(success.isErr()); // false
+
+  const failure = errSync('Failed');
+  console.log(failure.isErr()); // true
+  ```
+
+- **`unwrap(): T`** - Returns the value if Ok, throws the error if Err
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync('Success value');
+  console.log(success.unwrap()); // 'Success value'
+
+  const failure = errSync(new Error('Failure reason'));
+  // failure.unwrap(); // This would throw the Error: 'Failure reason'
+  ```
+
+- **`unwrapOr<U>(fallback: U): T | U`** - Returns the value if Ok, or the fallback if Err
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync(42);
+  console.log(success.unwrapOr(0)); // 42
+
+  const failure = errSync('Error occurred');
+  console.log(failure.unwrapOr(0)); // 0
+  ```
+
+- **`match<R>({ ok, err }: { ok: (value: T) => R, err: (error: E) => R }): R`** - Pattern matches on the Result, applying the appropriate function based on the Result state
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync('Success message');
+  const resultMessage = success.match({
+    ok: (value) => `Operation succeeded: ${value}`,
+    err: (error) => `Operation failed: ${error}`,
+  });
+  console.log(resultMessage); // 'Operation succeeded: Success message'
+
+  const failure = errSync('Error message');
+  const errorMessage = failure.match({
+    ok: (value) => `Operation succeeded: ${value}`,
+    err: (error) => `Operation failed: ${error}`,
+  });
+  console.log(errorMessage); // 'Operation failed: Error message'
+  ```
+
+- **`map<U>(fn: (value: T) => U): Result<U, E>`** - Maps the success value to a new value using the provided function
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync(5);
+  const doubled = success.map(x => x * 2);
+  console.log(doubled.unwrap()); // 10
+
+  const failure = errSync('Error');
+  const mappedFailure = failure.map(x => x * 2); // it will not execute because it's a failure
+  console.log(mappedFailure.isErr()); // true
+  ```
+
+- **`mapErr<F>(fn: (error: E) => F): Result<T, F>`** - Maps the error value to a new error using the provided function
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync(5);
+  const mappedSuccess = success.mapErr(e => new Error(String(e))); // it will not execute because it's a success
+
+  const failure = errSync('Something went wrong');
+  const enhancedError = failure.mapErr(msg => new Error(`Error: ${msg}`));
+  console.log(enhancedError.unwrapOr('Default')); // 'Default'
+  // If we were to unwrap, we'd get Error: Error: Something went wrong
+  ```
+
+- **`andThen<U, F>(fn: (value: T) => Result<U, F>): Result<U, E | F>`** - Chains a function that returns a Result, flattening the nested Result
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  // A function that returns a Result
+  const parseNumber = (input: string) => {
+    const num = parseInt(input, 10);
+    return isNaN(num)
+      ? errSync(new Error('Invalid number'))
+      : okSync(num);
+  };
+
+  // Chain operations with andThen
+  const result = okSync('42')
+    .andThen(parseNumber)
+    .andThen(num => okSync(num * 2));
+
+  console.log(result.unwrap()); // 84
+
+  // Error handling is automatic
+  const badResult = okSync('not a number')
+    .andThen(parseNumber)
+    .andThen(num => okSync(num * 2));
+
+  console.log(badResult.isErr()); // true
+  ```
+
+- **`orElse<U, F>(fn: (error: E) => Result<U, F>): Result<T | U, F>`** - Handles errors by returning a new Result
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const getUserById = (id: string) => {
+    if (id === '1') {
+      return okSync({ id: '1', name: 'Alice' });
+    }
+    return errSync(new Error('User not found'));
+  };
+
+  // Handle specific errors
+  const result = getUserById('999')
+    .orElse(error => {
+      if (error.message === 'User not found') {
+        return okSync({ id: '0', name: 'Guest User' });
+      }
+      return errSync(error);
+    });
+
+  console.log(result.unwrap()); // { id: '0', name: 'Guest User' }
+  ```
+
+- **`andTee(fn: (value: T) => unknown): Result<T, E>`** - Performs a side effect on success without changing the Result (tee/tap pattern)
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const success = okSync(42);
+  const sameResult = success.andTee(value => {
+    console.log(`Processing value: ${value}`); // Side effect
+    // This return value is ignored
+  });
+
+  // sameResult is still Ok(42)
+  console.log(sameResult.unwrap()); // 42
+  ```
+
+- **`orTee(fn: (error: E) => unknown): Result<T, E>`** - Performs a side effect on error without changing the Result
+  ```typescript
+  import { okSync, errSync } from '@kanzen/result';
+
+  const failure = errSync(new Error('Operation failed'));
+  const sameFailure = failure.orTee(error => {
+    console.error(`Logging error: ${error.message}`); // Side effect
+    // This return value is ignored
+  });
+
+  // sameFailure is still Err(Error: Operation failed)
+  console.log(sameFailure.isErr()); // true
+  ```
+
+<a name="asynchronous-api"></a>
+### Asynchronous API
+
+#### Creating Async Results
+
+- **`ok<T>(value: T): ResultAsync<T, never>`** - Creates a successful ResultAsync
+  ```typescript
+  import { ok } from '@kanzen/result';
+
+  const successAsync = ok('Async success');
+  console.log(await successAsync.isOk()); // true
+  ```
+
+- **`err<E>(error: E): ResultAsync<never, E>`** - Creates a failed ResultAsync
+  ```typescript
+  import { err } from '@kanzen/result';
+
+  const failureAsync = err(new Error('Async error'));
+  console.log(await failureAsync.isErr()); // true
+  ```
+
+- **`safeTry<T, E>(fn: () => Promise<T>, fnErr?: (error: unknown) => E): ResultAsync<T, E>`** - Safely executes an async function
+  ```typescript
+  import { safeTry } from '@kanzen/result';
+
+  // Original async function that may throw
+  async function fetchUserData(id: string): Promise<{id: string, name: string}> {
+    const response = await fetch(`https://api.example.com/users/${id}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    return await response.json();
+  }
+
+  // Create a safe version of the function
+  const safeFetchUserData = safeTry(fetchUserData);
+
+  // Use the safe version with async/await
+  const userResult = await safeFetchUserData('123');
+
+  // Process the result
+  let finalResult;
+  if (await userResult.isOk()) {
+    const userData = await userResult.unwrap();
+    console.log(`User: ${userData.name}`);
+    finalResult = userData;
+  } else {
+    const error = await userResult.match({
+      ok: () => null,
+      err: (e) => e
+    });
+    console.error(`Failed to fetch user: ${error.message}`);
+    finalResult = { id: '0', name: 'Unknown User' };
+  }
+
+  // With custom error mapping
+  const customSafeFetch = safeTry(
+    fetchUserData,
+    (error) => `API Error: ${String(error)}`
+  );
+  ```
+
+- **`toAsync<T, E>(result: Result<T, E>): ResultAsync<T, E>`** - Converts a Result to a ResultAsync
+  ```typescript
+  import { okSync, toAsync } from '@kanzen/result';
+
+  const syncResult = okSync(42);
+  const asyncResult = toAsync(syncResult);
+
+  const value = await asyncResult.unwrap(); // 42
+  ```
+
+#### ResultAsync Methods
+
+ResultAsync implements all the methods from Result but returns promises or new ResultAsync instances:
+
+- **`isOk(): Promise<boolean>`** - Asynchronously checks if the ResultAsync is successful
+  ```typescript
+  import { ok, err } from '@kanzen/result';
+
+  const success = ok(42);
+  console.log(await success.isOk()); // true
+
+  const failure = err('Failed');
+  console.log(await failure.isOk()); // false
+  ```
+
+- **`isErr(): Promise<boolean>`** - Asynchronously checks if the ResultAsync is an error
+  ```typescript
+  import { ok, err } from '@kanzen/result';
+
+  const success = ok(42);
+  console.log(await success.isErr()); // false
+
+  const failure = err('Failed');
+  console.log(await failure.isErr()); // true
+  ```
+
+- **`unwrap(): Promise<T>`** - Asynchronously returns the value if Ok, rejects with the error if Err
+  ```typescript
+  import { ok, err } from '@kanzen/result';
+
+  const success = ok('Success value');
+  console.log(await success.unwrap()); // 'Success value'
+
+  const failure = err(new Error('Failure reason'));
+  // try { await failure.unwrap(); } catch (error) { console.error(error); } // This would log Error: Failure reason
+  ```
+
+- **`unwrapOr<U>(fallback: U): Promise<T | U>`** - Asynchronously returns the value if Ok, or the fallback if Err
+  ```typescript
+  import { ok, err } from '@kanzen/result';
+
+  const success = ok(42);
+  console.log(await success.unwrapOr(0)); // 42
+
+  const failure = err('Error occurred');
+  console.log(await failure.unwrapOr(0)); // 0
+  ```
+
+- **`match<R>({ ok, err }: { ok: (value: T) => R, err: (error: E) => R }): Promise<R>`** - Asynchronously pattern matches on the ResultAsync
+  ```typescript
+  import { ok, err } from '@kanzen/result';
+
+  const success = ok('Success message');
+  const successMessage = await success.match({
+    ok: value => `Operation succeeded: ${value}`,
+    err: error => `Operation failed: ${error}`,
+  });
+  console.log(successMessage); // 'Operation succeeded: Success message'
+
+  const failure = err('Error message');
+  const failureMessage = await failure.match({
+    ok: value => `Operation succeeded: ${value}`,
+    err: error => `Operation failed: ${error}`,
+  });
+  console.log(failureMessage); // 'Operation failed: Error message'
+  ```
+
+- **`map<U>(fn: (value: T) => U): ResultAsync<U, E>`** - Asynchronously maps the success value
+  ```typescript
+  import { ok, err } from '@kanzen/result';
+
+  const success = ok(5);
+  const mappedValue = await success.map(x => x * 2).unwrap();
+  console.log(mappedValue); // 10
+
+  const failure = err('Error');
+  const stillError = await failure.map(x => x * 2).isErr(); // Still Err('Error')
+  console.log(stillError); // true
+  ```
+
+- **`mapErr<F>(fn: (error: E) => F): ResultAsync<T, F>`** - Asynchronously maps the error value
+  ```typescript
+  import { ok, err } from '@kanzen/result';
+
+  const success = ok(5);
+  const mappedValue = await success.mapErr(e => new Error(String(e))).unwrap(); // Still Ok(5)
+  console.log(mappedValue); // 5
+
+  const failure = err('Something went wrong');
+  const defaultValue = await failure.mapErr(msg => new Error(`Error: ${msg}`)).unwrapOr('Default');
+  console.log(defaultValue); // 'Default'
+  ```
+
+- **`andThen<U, F>(fn: (value: T) => ResultAsync<U, F>): ResultAsync<U, E | F>`** - Asynchronously chains a function that returns a ResultAsync
+  ```typescript
+  import { ok, err, safeTry } from '@kanzen/result';
+
+  // An async function that returns a Result
+  const fetchUserProfile = async (userId: string) => {
+    const response = await fetch(`https://api.example.com/users/${userId}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+    return await response.json();
+  };
+
+  const safeFetchUserProfile = safeTry(fetchUserProfile);
+
+  // Fetch user and then fetch their posts
+  const fetchUserPosts = async (user: any) => {
+    const response = await fetch(`https://api.example.com/users/${user.id}/posts`);
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+    return {
+      user,
+      posts: await response.json()
+    };
+  };
+
+  const safeFetchUserPosts = safeTry(fetchUserPosts);
+
+  // Chain operations with async/await
+  try {
+    const userResult = await safeFetchUserProfile('123');
+    const user = await userResult.unwrap();
+
+    const postsResult = await safeFetchUserPosts(user);
+    const data = await postsResult.unwrap();
+
+    console.log(`Found ${data.posts.length} posts by ${data.user.name}`);
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+  }
+  ```
+
+- **`orElse<U, F>(fn: (error: E) => ResultAsync<U, F>): ResultAsync<T | U, F>`** - Asynchronously handles errors by returning a new ResultAsync
+  ```typescript
+  import { ok, err, safeTry } from '@kanzen/result';
+
+  // An async function that may fail
+  const fetchFromPrimarySource = async () => {
+    throw new Error('Primary source unavailable');
+  };
+
+  const safeFetchPrimary = safeTry(fetchFromPrimarySource);
+
+  // A backup async function
+  const fetchFromBackupSource = async () => {
+    return { data: 'Backup data', source: 'backup' };
+  };
+
+  const safeFetchBackup = safeTry(fetchFromBackupSource);
+
+  // Try primary source, fall back to backup on failure using async/await
+  let data;
+  try {
+    const primaryResult = await safeFetchPrimary();
+    data = await primaryResult.unwrap();
+  } catch (error) {
+    console.log(`Primary source failed: ${error.message}`);
+    try {
+      const backupResult = await safeFetchBackup();
+      data = await backupResult.unwrap();
+    } catch (backupError) {
+      console.error(`All sources failed: ${backupError.message}`);
+      return;
+    }
+  }
+
+  console.log(`Retrieved data from ${data.source}`);
+  ```
+
+- **`andTee(fn: (value: T) => unknown): ResultAsync<T, E>`** - Asynchronously performs a side effect on success
+  ```typescript
+  import { ok } from '@kanzen/result';
+
+  const success = ok(42);
+  const result = await success.andTee(value => {
+    console.log(`Processing value: ${value}`); // Side effect
+  })
+  .unwrap();
+  console.log(`Result: ${result}`); // Result: 42
+  ```
+
+- **`orTee(fn: (error: E) => unknown): ResultAsync<T, E>`** - Asynchronously performs a side effect on error
+  ```typescript
+  import { err } from '@kanzen/result';
+
+  const failure = err(new Error('Operation failed'));
+  const isError = await failure.orTee(error => {
+    console.error(`Logging error: ${error.message}`); // Side effect
+  })
+  .isErr();
+  console.log(`Is error: ${isError}`); // Is error: true
+  ```
+
+<a name="license"></a>
+## 📜 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+Made with ❤️ by [Oscar Luis Jimenez Gonzalez](https://github.com/oljimenez)
